@@ -8,7 +8,7 @@
 # NOTES:
 #       This workflow integrates Trivy with GitHub's code scanning feature.
 #       Trivy is a simple and comprehensive vulnerability scanner from Aqua Security.
-#       Visit https://github.com/aquasecurity/trivy for futher information
+#       Visit https://github.com/aquasecurity/trivy for further information
 #
 ##################################################
 
@@ -23,9 +23,7 @@ on:  # yamllint disable-line rule:truthy
       - "main"
       - "master"
       - "trunk"
-    paths_ignore:
-      - "docs/**"
-      - "*.md"
+    paths-ignore:
       - "**/*.md"
 
 concurrency:
