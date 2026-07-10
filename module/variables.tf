@@ -36,6 +36,18 @@ variable "users" {
     ])
     error_message = "User 'status' must be one of: ACTIVE, INACTIVE."
   }
+
+  # Guard: 'is_force_reset_password' is not supported by the nutanix provider
+  # (verified unsupported in 2.4.2 via `tofu validate`). The attribute is kept
+  # in the schema so it is preserved when provider support lands, but this
+  # validation errors if a caller sets it today rather than silently dropping it.
+  validation {
+    condition = alltrue([
+      for k, v in var.users :
+      v.is_force_reset_password == false
+    ])
+    error_message = "User 'is_force_reset_password' is not yet supported by the nutanix provider (>= 2.4.0). Leave it unset (false) until the provider adds support; setting it would otherwise be silently ignored."
+  }
 }
 
 variable "user_passwords" {
@@ -193,5 +205,46 @@ variable "saml_identity_providers" {
       v.idp_metadata != null || v.idp_metadata_url != null || v.idp_metadata_xml != null
     ])
     error_message = "Each SAML IDP must provide at least one of: 'idp_metadata', 'idp_metadata_url', or 'idp_metadata_xml'."
+  }
+
+  # Security: IdP metadata must be fetched over HTTPS. Allowing plain HTTP would
+  # let a network attacker substitute the signing certificate / metadata
+  # (MITM), subverting the SAML trust chain.
+  validation {
+    condition = alltrue([
+      for v in var.saml_identity_providers :
+      v.idp_metadata_url == null || startswith(lower(v.idp_metadata_url), "https://")
+    ])
+    error_message = "SAML IDP 'idp_metadata_url' must use HTTPS. Fetching IdP metadata over plain HTTP allows signing-certificate substitution / MITM."
+  }
+
+  # When 'entity_issuer' is provided it must not be blank whitespace.
+  validation {
+    condition = alltrue([
+      for v in var.saml_identity_providers :
+      v.entity_issuer == null || length(trimspace(v.entity_issuer)) > 0
+    ])
+    error_message = "SAML IDP 'entity_issuer', when set, must be a non-empty string."
+  }
+
+  # Guards: username_attr / email_attr / groups_attr / custom_attr are not
+  # supported by the nutanix provider (verified unsupported in 2.4.2 via
+  # `tofu validate`). They remain in the schema so values are preserved when
+  # provider support lands, but these validations error if a caller sets them
+  # today rather than silently dropping them.
+  validation {
+    condition = alltrue([
+      for v in var.saml_identity_providers :
+      v.username_attr == null && v.email_attr == null && v.groups_attr == null
+    ])
+    error_message = "SAML IDP 'username_attr', 'email_attr' and 'groups_attr' are not yet supported by the nutanix provider (>= 2.4.0). Leave them unset until the provider adds support; setting them would otherwise be silently ignored."
+  }
+
+  validation {
+    condition = alltrue([
+      for v in var.saml_identity_providers :
+      length(v.custom_attr) == 0
+    ])
+    error_message = "SAML IDP 'custom_attr' is not yet supported by the nutanix provider (>= 2.4.0). Leave it empty until the provider adds support; setting it would otherwise be silently ignored."
   }
 }

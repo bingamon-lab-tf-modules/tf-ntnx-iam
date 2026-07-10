@@ -16,7 +16,9 @@ resource "nutanix_users_v2" "user" {
   idp_id         = each.value.idp_id
   locale         = each.value.locale
   region         = each.value.region
-  # TODO: is_force_reset_password is not supported in nutanix provider 2.3.1
+  # NOTE: is_force_reset_password is not supported by the nutanix provider
+  # (verified unsupported in 2.4.2 via `tofu validate`). A validation guard on
+  # var.users errors if a caller sets it, so the value can't be silently lost.
   # is_force_reset_password = each.value.is_force_reset_password
   status      = each.value.status
   description = each.value.description
@@ -99,16 +101,17 @@ resource "nutanix_saml_identity_providers_v2" "saml_idp" {
   for_each = var.saml_identity_providers
 
   name = each.value.name
-  # TODO: username_attr is not supported in nutanix provider 2.3.1
-  # username_attr               = each.value.username_attr
-  # TODO: email_attr is not supported in nutanix provider 2.3.1
-  # email_attr                  = each.value.email_attr
-  # TODO: groups_attr is not supported in nutanix provider 2.3.1
-  # groups_attr                 = each.value.groups_attr
+  # NOTE: username_attr / email_attr / groups_attr / custom_attr are not
+  # supported by the nutanix provider (verified unsupported in 2.4.2 via
+  # `tofu validate`). Validation guards on var.saml_identity_providers error if
+  # a caller sets any of them, so the values can't be silently lost.
+  # username_attr = each.value.username_attr
+  # email_attr    = each.value.email_attr
+  # groups_attr   = each.value.groups_attr
   groups_delim  = each.value.groups_delim
   entity_issuer = each.value.entity_issuer
-  # TODO: custom_attr is not supported in nutanix provider 2.3.1
-  # custom_attr                 = length(each.value.custom_attr) > 0 ? each.value.custom_attr : null
+  # custom_attr   = length(each.value.custom_attr) > 0 ? each.value.custom_attr : null
+
   is_signed_authn_req_enabled = each.value.is_signed_authn_req_enabled
   idp_metadata_url            = each.value.idp_metadata_url
   idp_metadata_xml            = each.value.idp_metadata_xml
