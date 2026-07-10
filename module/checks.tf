@@ -21,10 +21,12 @@ check "idp_users_have_idp_id" {
 }
 
 # Validate that local users have a password.
+# References local.users so the password (supplied via the sensitive
+# var.user_passwords map and merged in locals) is included in the check.
 check "local_users_have_password" {
   assert {
     condition = alltrue([
-      for k, v in var.users :
+      for k, v in local.users :
       v.user_type != "LOCAL" || v.password != null
     ])
     error_message = "LOCAL users should have a 'password' specified."

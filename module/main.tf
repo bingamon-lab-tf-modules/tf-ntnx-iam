@@ -3,7 +3,7 @@
 ##################################################
 
 resource "nutanix_users_v2" "user" {
-  for_each = var.users
+  for_each = local.users
 
   username       = each.value.username
   user_type      = each.value.user_type
@@ -52,7 +52,7 @@ resource "nutanix_roles_v2" "role" {
 ##################################################
 
 resource "nutanix_directory_services_v2" "directory_service" {
-  for_each = var.directory_services
+  for_each = local.directory_services
 
   name                = each.value.name
   url                 = each.value.url

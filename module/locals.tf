@@ -4,6 +4,14 @@ locals {
   # Users
   ##################################################
 
+  # Users with their (sensitive) password merged back in from the dedicated
+  # 'var.user_passwords' map. Consumed by the nutanix_users_v2 resource.
+  users = {
+    for k, u in var.users : k => merge(u, {
+      password = lookup(var.user_passwords, k, null)
+    })
+  }
+
   # Users that are active
   active_users = { for k, v in var.users : k => v if v.status == "ACTIVE" }
 
@@ -32,6 +40,17 @@ locals {
   ##################################################
   # Directory Services
   ##################################################
+
+  # Directory services with the (sensitive) service account password merged
+  # back in from the dedicated 'var.directory_service_passwords' map. Consumed
+  # by the nutanix_directory_services_v2 resource.
+  directory_services = {
+    for k, v in var.directory_services : k => merge(v, {
+      service_account = merge(v.service_account, {
+        password = lookup(var.directory_service_passwords, k, null)
+      })
+    })
+  }
 
   # Active Directory services
   active_directory_services = { for k, v in var.directory_services : k => v if v.directory_type == "ACTIVE_DIRECTORY" }

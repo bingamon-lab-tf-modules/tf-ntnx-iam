@@ -12,7 +12,6 @@ variable "users" {
     middle_initial          = optional(string, null)
     last_name               = optional(string, null)
     email_id                = optional(string, null)
-    password                = optional(string, null)
     idp_id                  = optional(string, null)
     locale                  = optional(string, null)
     region                  = optional(string, null)
@@ -37,6 +36,13 @@ variable "users" {
     ])
     error_message = "User 'status' must be one of: ACTIVE, INACTIVE."
   }
+}
+
+variable "user_passwords" {
+  description = "A map of user passwords, keyed by the same map key as 'var.users'. Kept separate so the value is marked sensitive without over-masking the other (non-secret) user attributes in plan output."
+  type        = map(string)
+  default     = {}
+  sensitive   = true
 }
 
 ##################################################
@@ -101,7 +107,6 @@ variable "directory_services" {
 
     service_account = object({
       username = string
-      password = string
     })
 
     open_ldap_configuration = optional(object({
@@ -143,6 +148,13 @@ variable "directory_services" {
     ])
     error_message = "Directory service 'group_search_type' must be one of: NON_RECURSIVE, RECURSIVE."
   }
+}
+
+variable "directory_service_passwords" {
+  description = "A map of directory service (LDAP) service account passwords, keyed by the same map key as 'var.directory_services'. Kept separate so the value is marked sensitive without over-masking the other (non-secret) directory service attributes in plan output."
+  type        = map(string)
+  default     = {}
+  sensitive   = true
 }
 
 ##################################################
