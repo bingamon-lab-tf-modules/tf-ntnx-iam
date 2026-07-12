@@ -37,6 +37,14 @@ variable "users" {
     error_message = "User 'status' must be one of: ACTIVE, INACTIVE."
   }
 
+  validation {
+    condition = alltrue([
+      for k, v in var.users :
+      v.username != null && v.username != ""
+    ])
+    error_message = "User 'username' is required and must be a non-empty string."
+  }
+
   # Guard: 'is_force_reset_password' is not supported by the nutanix provider
   # (verified unsupported in 2.4.2 via `tofu validate`). The attribute is kept
   # in the schema so it is preserved when provider support lands, but this
@@ -96,6 +104,14 @@ variable "roles" {
   validation {
     condition = alltrue([
       for k, v in var.roles :
+      v.display_name != null && v.display_name != ""
+    ])
+    error_message = "Role 'display_name' is required and must be a non-empty string."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.roles :
       length(v.operations) > 0
     ])
     error_message = "Each role must have at least one operation."
@@ -143,6 +159,14 @@ variable "directory_services" {
       contains(["ACTIVE_DIRECTORY", "OPEN_LDAP"], v.directory_type)
     ])
     error_message = "Directory service 'directory_type' must be one of: ACTIVE_DIRECTORY, OPEN_LDAP."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.directory_services :
+      v.name != null && v.name != "" && v.url != null && v.url != ""
+    ])
+    error_message = "Directory service 'name' and 'url' are required and must be non-empty strings."
   }
 
   validation {
@@ -205,6 +229,17 @@ variable "saml_identity_providers" {
       v.idp_metadata != null || v.idp_metadata_url != null || v.idp_metadata_xml != null
     ])
     error_message = "Each SAML IDP must provide at least one of: 'idp_metadata', 'idp_metadata_url', or 'idp_metadata_xml'."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.saml_identity_providers :
+      v.idp_metadata == null || v.idp_metadata.name_id_policy_format == null || contains(
+        ["emailAddress", "encrypted", "unspecified", "transient", "WindowsDomainQualifiedName", "X509SubjectName", "kerberos", "persistent", "entity"],
+        v.idp_metadata.name_id_policy_format
+      )
+    ])
+    error_message = "SAML IDP 'idp_metadata.name_id_policy_format' must be one of: emailAddress, encrypted, unspecified, transient, WindowsDomainQualifiedName, X509SubjectName, kerberos, persistent, entity."
   }
 
   # Security: IdP metadata must be fetched over HTTPS. Allowing plain HTTP would
