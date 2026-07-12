@@ -109,16 +109,40 @@ output "saml_identity_provider_ids" {
 }
 
 ##################################################
+# Authorization Policy Outputs
+##################################################
+
+output "authorization_policies" {
+  description = "Map of created authorization policies (role bindings) with their details."
+  value = {
+    for k, v in nutanix_authorization_policy_v2.authorization_policy : k => {
+      ext_id                    = v.ext_id
+      display_name              = v.display_name
+      role                      = v.role
+      description               = v.description
+      authorization_policy_type = v.authorization_policy_type
+      is_system_defined         = v.is_system_defined
+    }
+  }
+}
+
+output "authorization_policy_ids" {
+  description = "Map of authorization policy keys to their external IDs."
+  value       = { for k, v in nutanix_authorization_policy_v2.authorization_policy : k => v.ext_id }
+}
+
+##################################################
 # Summary
 ##################################################
 
 output "iam_summary" {
   description = "Summary of IAM resources managed by this module."
   value = {
-    total_users              = length(var.users)
-    total_user_groups        = length(var.user_groups)
-    total_roles              = length(var.roles)
-    total_directory_services = length(var.directory_services)
-    total_saml_idps          = length(var.saml_identity_providers)
+    total_users                  = length(var.users)
+    total_user_groups            = length(var.user_groups)
+    total_roles                  = length(var.roles)
+    total_directory_services     = length(var.directory_services)
+    total_saml_idps              = length(var.saml_identity_providers)
+    total_authorization_policies = length(var.authorization_policies)
   }
 }

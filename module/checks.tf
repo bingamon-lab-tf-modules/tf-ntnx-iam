@@ -32,3 +32,16 @@ check "local_users_have_password" {
     error_message = "LOCAL users should have a 'password' specified."
   }
 }
+
+# Validate that each authorization policy is a coherent role binding: it names a
+# role and binds at least one identity over at least one entity scope. A binding
+# missing any of the three grants nothing (or fails at apply).
+check "authorization_policies_are_coherent" {
+  assert {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      v.role != null && v.role != "" && length(v.identities) > 0 && length(v.entities) > 0
+    ])
+    error_message = "Each authorization policy should name a role and bind at least one identity over at least one entity scope."
+  }
+}

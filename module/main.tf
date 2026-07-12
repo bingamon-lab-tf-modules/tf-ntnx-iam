@@ -128,3 +128,30 @@ resource "nutanix_saml_identity_providers_v2" "saml_idp" {
     }
   }
 }
+
+##################################################
+# Authorization Policies
+##################################################
+
+resource "nutanix_authorization_policy_v2" "authorization_policy" {
+  for_each = var.authorization_policies
+
+  display_name              = each.value.display_name
+  role                      = each.value.role
+  description               = each.value.description
+  authorization_policy_type = each.value.authorization_policy_type
+
+  dynamic "identities" {
+    for_each = each.value.identities
+    content {
+      reserved = identities.value
+    }
+  }
+
+  dynamic "entities" {
+    for_each = each.value.entities
+    content {
+      reserved = entities.value
+    }
+  }
+}

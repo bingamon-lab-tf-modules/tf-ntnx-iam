@@ -283,3 +283,91 @@ variable "saml_identity_providers" {
     error_message = "SAML IDP 'custom_attr' is not yet supported by the nutanix provider (>= 2.4.0). Leave it empty until the provider adds support; setting it would otherwise be silently ignored."
   }
 }
+
+##################################################
+# Authorization Policies
+##################################################
+
+variable "authorization_policies" {
+  description = <<-EOT
+    A map of authorization policies (role bindings) to manage in Nutanix. Each
+    entry binds a role to one or more identities (users/groups) over one or more
+    entity scopes — the v2 replacement for legacy v3 access_control_policy.
+
+    'role' is the ext_id (UUID) of the role to bind. 'identities' and 'entities'
+    are lists of provider 'reserved' filter-expression strings (JSON), mirroring
+    the nutanix_authorization_policy_v2 schema, e.g.
+      identities = ["{\"user\":{\"uuid\":{\"anyof\":[\"<user-uuid>\"]}}}"]
+      entities   = ["{\"images\":{\"*\":{\"eq\":\"*\"}}}"]
+  EOT
+  type = map(object({
+    display_name              = string
+    role                      = string
+    description               = optional(string, null)
+    authorization_policy_type = optional(string, null)
+    identities                = optional(list(string), [])
+    entities                  = optional(list(string), [])
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      v.display_name != null && v.display_name != ""
+    ])
+    error_message = "Authorization policy 'display_name' is required and must be a non-empty string."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      v.role != null && v.role != ""
+    ])
+    error_message = "Authorization policy 'role' is required and must be a non-empty string (a role ext_id)."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      length(v.identities) > 0
+    ])
+    error_message = "Each authorization policy must bind at least one identity."
+  }
+
+  # The provider requires at least one entity scope block (min_items = 1); guard
+  # here so a missing scope fails at plan with a clear message rather than at apply.
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      length(v.entities) > 0
+    ])
+    error_message = "Each authorization policy must reference at least one entity scope."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      v.authorization_policy_type == null || contains(
+        ["USER_DEFINED", "PREDEFINED_READ_ONLY", "PREDEFINED_UPDATE_IDENTITY_ONLY", "SERVICE_DEFINED_READ_ONLY", "SERVICE_DEFINED"],
+        v.authorization_policy_type
+      )
+    ])
+    error_message = "Authorization policy 'authorization_policy_type' must be one of: USER_DEFINED, PREDEFINED_READ_ONLY, PREDEFINED_UPDATE_IDENTITY_ONLY, SERVICE_DEFINED_READ_ONLY, SERVICE_DEFINED."
+  }
+}
+
+##################################################
+# Data Lookups (gated)
+##################################################
+
+variable "enable_data_lookups" {
+  description = "When true, enable the introspection data sources (IAM operations/permissions catalog and existing authorization policies). Disabled by default so a normal plan makes no discovery read calls; enable only when resolving operation ext_ids or auditing existing policies."
+  type        = bool
+  default     = false
+}
+
+variable "operation_lookup_ext_ids" {
+  description = "Ext IDs of specific IAM operations (permissions) to resolve individually via the singular nutanix_operation_v2 data source. Only read when 'enable_data_lookups' is true. Defaults to an empty list so no per-operation lookups occur."
+  type        = list(string)
+  default     = []
+}
