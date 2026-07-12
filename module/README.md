@@ -72,6 +72,7 @@ No modules.
 | <a name="output_directory_service_ids"></a> [directory\_service\_ids](#output\_directory\_service\_ids) | Map of directory service keys to their external IDs. |
 | <a name="output_directory_services"></a> [directory\_services](#output\_directory\_services) | Map of created directory services with their details. |
 | <a name="output_iam_summary"></a> [iam\_summary](#output\_iam\_summary) | Summary of IAM resources managed by this module. |
+| <a name="output_outputs"></a> [outputs](#output\_outputs) | Aggregate of all module outputs (spec §7.6 contract, consumed by the landing zone as module.<x>.outputs). |
 | <a name="output_role_ids"></a> [role\_ids](#output\_role\_ids) | Map of role keys to their external IDs. |
 | <a name="output_roles"></a> [roles](#output\_roles) | Map of created roles with their details. |
 | <a name="output_saml_identity_provider_ids"></a> [saml\_identity\_provider\_ids](#output\_saml\_identity\_provider\_ids) | Map of SAML IDP keys to their external IDs. |
