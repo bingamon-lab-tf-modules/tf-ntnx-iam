@@ -96,9 +96,9 @@ output "saml_identity_providers" {
     for k, v in nutanix_saml_identity_providers_v2.saml_idp : k => {
       ext_id        = v.ext_id
       name          = v.name
-      username_attr = v.username_attr
-      email_attr    = v.email_attr
-      groups_attr   = v.groups_attr
+      username_attr = v.username_attribute
+      email_attr    = v.email_attribute
+      groups_attr   = v.groups_attribute
     }
   }
 }
