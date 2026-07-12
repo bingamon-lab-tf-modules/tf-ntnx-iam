@@ -45,3 +45,28 @@ check "authorization_policies_are_coherent" {
     error_message = "Each authorization policy should name a role and bind at least one identity over at least one entity scope."
   }
 }
+
+# Validate that every user key resolved its target user to an ext_id. References
+# to module-managed users resolve to a known-after-apply ext_id (this check
+# defers on them); a 'user' that matches no managed or pre-existing user
+# resolves to null and is caught here rather than failing opaquely at apply.
+check "user_keys_reference_resolvable_user" {
+  assert {
+    condition = alltrue([
+      for k, v in local.user_keys :
+      v.user_ext_id != null
+    ])
+    error_message = "A user key references a 'user' that matches no managed or pre-existing user. Set 'user' to a users map key/username, or provide 'user_ext_id'."
+  }
+}
+
+# Same resolvability check for revocation owners.
+check "user_key_revocations_reference_resolvable_user" {
+  assert {
+    condition = alltrue([
+      for k, v in local.user_key_revocations :
+      v.user_ext_id != null
+    ])
+    error_message = "A user key revocation references a 'user' that matches no managed or pre-existing user. Set 'user' to a users map key/username, or provide 'user_ext_id'."
+  }
+}

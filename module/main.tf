@@ -155,3 +155,33 @@ resource "nutanix_authorization_policy_v2" "authorization_policy" {
     }
   }
 }
+
+##################################################
+# User API Keys
+##################################################
+
+resource "nutanix_user_key_v2" "user_key" {
+  for_each = local.user_keys
+
+  name        = each.value.name
+  key_type    = each.value.key_type
+  user_ext_id = each.value.user_ext_id
+  expiry_time = each.value.expiry_time
+  description = each.value.description
+}
+
+##################################################
+# User Key Revocations
+#
+# Imperative, one-shot action: applying an entry revokes the named key once.
+# This is kept independent of nutanix_user_key_v2 — a key is never revoked
+# automatically when its 'user_keys' entry is destroyed, and destroying a
+# revocation entry does not un-revoke the key.
+##################################################
+
+resource "nutanix_user_key_revoke_v2" "user_key_revoke" {
+  for_each = local.user_key_revocations
+
+  user_ext_id = each.value.user_ext_id
+  ext_id      = each.value.ext_id
+}

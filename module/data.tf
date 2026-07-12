@@ -40,3 +40,12 @@ data "nutanix_operation_v2" "operation" {
 data "nutanix_authorization_policies_v2" "existing_authorization_policies" {
   count = var.enable_data_lookups ? 1 : 0
 }
+
+# Existing API keys issued to specific users, for audit / rotation reference.
+# The data source requires a user ext_id per query, so this fans out over
+# 'var.user_key_lookup_user_ext_ids'.
+data "nutanix_user_keys_v2" "user_keys" {
+  for_each = var.enable_data_lookups ? toset(var.user_key_lookup_user_ext_ids) : toset([])
+
+  user_ext_id = each.value
+}

@@ -132,6 +132,35 @@ output "authorization_policy_ids" {
 }
 
 ##################################################
+# User API Key Outputs
+##################################################
+
+# SENSITIVE: 'key_details' carries the generated key material (api_key for
+# API_KEY, access_key/secret_key for OBJECT_KEY). Marked sensitive so the
+# material is never rendered in plan/apply output or logs; it lives only in
+# (encrypted) state. Consume it downstream through a sensitive channel.
+output "user_keys" {
+  description = "Map of issued user API keys with their details, including generated key material. SENSITIVE."
+  sensitive   = true
+  value = {
+    for k, v in nutanix_user_key_v2.user_key : k => {
+      ext_id      = v.ext_id
+      name        = v.name
+      key_type    = v.key_type
+      user_ext_id = v.user_ext_id
+      status      = v.status
+      expiry_time = v.expiry_time
+      key_details = v.key_details
+    }
+  }
+}
+
+output "user_key_ids" {
+  description = "Map of user key map keys to their external IDs (key identifiers, not secret material)."
+  value       = { for k, v in nutanix_user_key_v2.user_key : k => v.ext_id }
+}
+
+##################################################
 # Summary
 ##################################################
 
@@ -144,5 +173,7 @@ output "iam_summary" {
     total_directory_services     = length(var.directory_services)
     total_saml_idps              = length(var.saml_identity_providers)
     total_authorization_policies = length(var.authorization_policies)
+    total_user_keys              = length(var.user_keys)
+    total_user_key_revocations   = length(var.user_key_revocations)
   }
 }

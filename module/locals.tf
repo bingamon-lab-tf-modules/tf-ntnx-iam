@@ -57,4 +57,47 @@ locals {
 
   # OpenLDAP directory services
   open_ldap_services = { for k, v in var.directory_services : k => v if v.directory_type == "OPEN_LDAP" }
+
+  ##################################################
+  # User API Keys
+  ##################################################
+
+  # ext_id of every module-managed user, indexed by the 'var.users' map key.
+  # Values are known-after-apply (the resource ext_id is computed).
+  managed_user_ext_ids_by_key = { for k, u in nutanix_users_v2.user : k => u.ext_id }
+
+  # ext_id of every module-managed user, indexed by username (a known input),
+  # so a user key can reference its owner by username as well as by map key.
+  managed_user_ext_ids_by_username = { for k, u in nutanix_users_v2.user : u.username => u.ext_id }
+
+  # ext_id of pre-existing users, indexed by username, from the ungated
+  # existing-users data source. Used as the fallback when a user key references
+  # a user that this module does not manage.
+  existing_user_ext_ids_by_username = {
+    for u in data.nutanix_users_v2.existing_users.users : u.username => u.ext_id
+  }
+
+  # Resolve each user key's target user to an ext_id: an explicit 'user_ext_id'
+  # wins; otherwise 'user' is matched against managed users (by map key, then by
+  # username) and finally against pre-existing users (by username). Unresolved
+  # references stay null and are surfaced by the check in checks.tf.
+  user_keys = {
+    for k, v in var.user_keys : k => merge(v, {
+      user_ext_id = (v.user_ext_id != null && v.user_ext_id != "") ? v.user_ext_id : lookup(
+        local.managed_user_ext_ids_by_key, v.user, lookup(
+          local.managed_user_ext_ids_by_username, v.user, lookup(
+      local.existing_user_ext_ids_by_username, v.user, null)))
+    })
+  }
+
+  # Same owner-resolution for revocations. 'ext_id' (the key being revoked) is
+  # carried through untouched.
+  user_key_revocations = {
+    for k, v in var.user_key_revocations : k => merge(v, {
+      user_ext_id = (v.user_ext_id != null && v.user_ext_id != "") ? v.user_ext_id : lookup(
+        local.managed_user_ext_ids_by_key, v.user, lookup(
+          local.managed_user_ext_ids_by_username, v.user, lookup(
+      local.existing_user_ext_ids_by_username, v.user, null)))
+    })
+  }
 }

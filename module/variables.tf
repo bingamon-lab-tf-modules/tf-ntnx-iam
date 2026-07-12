@@ -357,6 +357,105 @@ variable "authorization_policies" {
 }
 
 ##################################################
+# User API Keys
+##################################################
+
+variable "user_keys" {
+  description = <<-EOT
+    A map of API keys to issue for users (typically SERVICE_ACCOUNT users) via
+    nutanix_user_key_v2. Each entry names the key and points at the target user;
+    the module resolves the user reference to an ext_id.
+
+    Reference the target user with EITHER 'user' (the map key of a user managed in
+    'var.users', or the username of a managed/pre-existing user) OR 'user_ext_id'
+    (an explicit ext_id for a pre-existing user). 'key_type' is 'API_KEY'
+    (identification api_key material) or 'OBJECT_KEY' (access/secret key pair).
+
+    The generated key material is computed and never written back to config; it is
+    exposed only through the sensitive 'user_keys' output and lives in state.
+  EOT
+  type = map(object({
+    name        = string
+    user        = optional(string, null) # map key or username of the target user
+    user_ext_id = optional(string, null) # explicit ext_id override (pre-existing users)
+    key_type    = optional(string, "API_KEY")
+    expiry_time = optional(string, null) # RFC3339, e.g. "2027-01-01T00:00:00Z"
+    description = optional(string, null)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_keys :
+      v.name != null && v.name != ""
+    ])
+    error_message = "User key 'name' is required and must be a non-empty string."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_keys :
+      (v.user != null && v.user != "") || (v.user_ext_id != null && v.user_ext_id != "")
+    ])
+    error_message = "Each user key must reference a target user via 'user' (map key or username) or 'user_ext_id'."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_keys :
+      contains(["API_KEY", "OBJECT_KEY"], v.key_type)
+    ])
+    error_message = "User key 'key_type' must be one of: API_KEY, OBJECT_KEY."
+  }
+
+  # 'expiry_time', when set, must be a valid RFC3339 timestamp so it round-trips
+  # to the provider's expiry_time field rather than failing at apply.
+  validation {
+    condition = alltrue([
+      for k, v in var.user_keys :
+      v.expiry_time == null || can(formatdate("YYYY-MM-DD", v.expiry_time))
+    ])
+    error_message = "User key 'expiry_time' must be an RFC3339 timestamp, e.g. \"2027-01-01T00:00:00Z\"."
+  }
+}
+
+variable "user_key_revocations" {
+  description = <<-EOT
+    A map of user-key revocations to apply via nutanix_user_key_revoke_v2. This is
+    an IMPERATIVE, ONE-SHOT action, not desired state: applying an entry revokes
+    the named key once; changing an entry's 'ext_id' triggers a new revoke; and
+    removing/destroying an entry does NOT un-revoke the key (revocation is
+    irreversible). Keep this map independent of 'var.user_keys' — a key is not
+    revoked automatically when its 'user_keys' entry is destroyed.
+
+    'ext_id' is the ext_id of the key to revoke. Reference the owning user with
+    'user' (map key or username) or 'user_ext_id', same as 'var.user_keys'.
+  EOT
+  type = map(object({
+    ext_id      = string # ext_id of the key to revoke
+    user        = optional(string, null)
+    user_ext_id = optional(string, null)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_key_revocations :
+      v.ext_id != null && v.ext_id != ""
+    ])
+    error_message = "User key revocation 'ext_id' (the key to revoke) is required and must be a non-empty string."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_key_revocations :
+      (v.user != null && v.user != "") || (v.user_ext_id != null && v.user_ext_id != "")
+    ])
+    error_message = "Each user key revocation must reference the owning user via 'user' (map key or username) or 'user_ext_id'."
+  }
+}
+
+##################################################
 # Data Lookups (gated)
 ##################################################
 
@@ -368,6 +467,12 @@ variable "enable_data_lookups" {
 
 variable "operation_lookup_ext_ids" {
   description = "Ext IDs of specific IAM operations (permissions) to resolve individually via the singular nutanix_operation_v2 data source. Only read when 'enable_data_lookups' is true. Defaults to an empty list so no per-operation lookups occur."
+  type        = list(string)
+  default     = []
+}
+
+variable "user_key_lookup_user_ext_ids" {
+  description = "Ext IDs of users whose issued API keys should be enumerated via the nutanix_user_keys_v2 data source (the data source requires a user ext_id per query). Only read when 'enable_data_lookups' is true. Defaults to an empty list so no key-inventory reads occur."
   type        = list(string)
   default     = []
 }
