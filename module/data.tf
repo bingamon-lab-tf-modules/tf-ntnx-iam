@@ -74,3 +74,24 @@ data "nutanix_roles_v2" "role_by_name" {
 
   filter = "displayName eq '${each.value}'"
 }
+
+##################################################
+# Operation (permission) lookup by display name
+#
+# Same reasoning as role_by_name: operation ext_ids are per-Prism-Central
+# UUIDs, so a role cannot portably hard-code them.
+#
+# One exact-match query per name, NOT a bulk prefix filter. The operations API
+# caps a page at 100; a stock Prism Central has 1272 operations, 414 of which
+# start with 'View_'. The data source does not paginate, so a prefix filter
+# would return the first 100 and silently drop the rest — producing a role that
+# looks right in config but is missing most of its permissions. An exact-match
+# query returns exactly one row or none, and 'role_operation_names_resolve' in
+# checks.tf fails the plan on none.
+##################################################
+
+data "nutanix_operations_v2" "operation_by_name" {
+  for_each = local.role_operation_names
+
+  filter = "displayName eq '${each.value}'"
+}

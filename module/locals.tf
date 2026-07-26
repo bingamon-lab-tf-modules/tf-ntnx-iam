@@ -102,6 +102,33 @@ locals {
   }
 
   ##################################################
+  # Roles: operation resolution
+  ##################################################
+
+  # Distinct operation display names across all roles. Drives the
+  # data.nutanix_operations_v2 fan-out, so roles that give literal ext_ids
+  # issue no lookups.
+  role_operation_names = toset(flatten([
+    for k, v in var.roles : v.operation_names
+  ]))
+
+  # Roles with operation_names resolved to ext_ids and merged with any literal
+  # ext_ids. A name that matches nothing yields null here; the
+  # 'role_operation_names_resolve' check reports that at plan time rather than
+  # letting a null reach the API.
+  roles = {
+    for k, v in var.roles : k => merge(v, {
+      operations = concat(
+        v.operations,
+        [
+          for n in v.operation_names :
+          one(data.nutanix_operations_v2.operation_by_name[n].operations[*].ext_id)
+        ],
+      )
+    })
+  }
+
+  ##################################################
   # Authorization policies: role and identity resolution
   ##################################################
 

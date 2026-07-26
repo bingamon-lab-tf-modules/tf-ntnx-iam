@@ -72,3 +72,29 @@ check "user_key_revocations_reference_resolvable_user" {
     error_message = "A user key revocation references a 'user' that matches no managed or pre-existing user. Set 'user' to a users map key/username, or provide 'user_ext_id'."
   }
 }
+
+# Every operation_names entry must match exactly one operation. Operation names
+# are exact and case-sensitive ("View_Virtual_Machine", not "view_virtual_machine"),
+# so a typo would otherwise resolve to null and fail at apply with an opaque
+# API error instead of here.
+check "role_operation_names_resolve" {
+  assert {
+    condition = alltrue([
+      for n in local.role_operation_names :
+      length(data.nutanix_operations_v2.operation_by_name[n].operations) == 1
+    ])
+    error_message = "A role 'operation_names' entry matched no operation in Prism Central. Names are exact and case-sensitive, e.g. 'View_Virtual_Machine'."
+  }
+}
+
+# A role that resolved a name to nothing must not reach the API with a null in
+# its operations list.
+check "roles_have_no_unresolved_operations" {
+  assert {
+    condition = alltrue([
+      for k, v in local.roles :
+      alltrue([for o in v.operations : o != null])
+    ])
+    error_message = "A role has an unresolved operation. Check the names in 'operation_names' against Prism Central."
+  }
+}

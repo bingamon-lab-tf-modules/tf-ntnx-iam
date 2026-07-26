@@ -124,7 +124,19 @@ variable "roles" {
   type = map(object({
     display_name = string
     description  = optional(string, null)
-    operations   = list(string)
+    # Permissions granted by this role. Supply either or both:
+    #   operation_names — operation display names (e.g. "View_Virtual_Machine"),
+    #     each resolved to its ext_id at plan time. PREFERRED: operation ext_ids
+    #     are per-Prism-Central UUIDs, so a literal list is not portable.
+    #   operations — literal operation ext_ids. Escape hatch.
+    #
+    # There is deliberately NO bulk "filter" option (e.g. all View_*). The
+    # operations API caps a page at 100 while a stock Prism Central has 1272
+    # operations and 414 starting with View_, and the data source does not
+    # paginate — a filter would silently build a role missing most of its
+    # permissions. Naming operations explicitly cannot truncate.
+    operations      = optional(list(string), [])
+    operation_names = optional(list(string), [])
   }))
   default = {}
 
@@ -139,9 +151,9 @@ variable "roles" {
   validation {
     condition = alltrue([
       for k, v in var.roles :
-      length(v.operations) > 0
+      length(v.operations) + length(v.operation_names) > 0
     ])
-    error_message = "Each role must have at least one operation."
+    error_message = "Each role must have at least one operation, via 'operation_names' or 'operations'."
   }
 }
 

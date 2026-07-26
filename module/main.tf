@@ -50,7 +50,7 @@ resource "nutanix_user_groups_v2" "group" {
 ##################################################
 
 resource "nutanix_roles_v2" "role" {
-  for_each = var.roles
+  for_each = local.roles
 
   display_name = each.value.display_name
   description  = each.value.description
