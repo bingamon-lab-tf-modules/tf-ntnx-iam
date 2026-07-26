@@ -5,14 +5,18 @@
 variable "users" {
   description = "A map of users to manage in Nutanix."
   type = map(object({
-    username                = string
-    user_type               = string # LOCAL, SAML, LDAP, EXTERNAL, SERVICE_ACCOUNT
-    display_name            = optional(string, null)
-    first_name              = optional(string, null)
-    middle_initial          = optional(string, null)
-    last_name               = optional(string, null)
-    email_id                = optional(string, null)
+    username       = string
+    user_type      = string # LOCAL, SAML, LDAP, EXTERNAL, SERVICE_ACCOUNT
+    display_name   = optional(string, null)
+    first_name     = optional(string, null)
+    middle_initial = optional(string, null)
+    last_name      = optional(string, null)
+    email_id       = optional(string, null)
+    # As with user_groups: 'directory_service' is a key into
+    # var.directory_services and is resolved to that service's ext_id, while
+    # 'idp_id' takes a literal UUID for a provider managed elsewhere.
     idp_id                  = optional(string, null)
+    directory_service       = optional(string, null)
     locale                  = optional(string, null)
     region                  = optional(string, null)
     is_force_reset_password = optional(bool, false)
@@ -72,8 +76,15 @@ variable "user_passwords" {
 variable "user_groups" {
   description = "A map of user groups to manage in Nutanix."
   type = map(object({
-    group_type         = string # LDAP, SAML
-    idp_id             = string
+    group_type = string # LDAP, SAML
+    # Identity provider for this group. Supply EXACTLY ONE of:
+    #   directory_service — key into var.directory_services, resolved to that
+    #     service's ext_id after it is created. Use this for a directory this
+    #     module manages, so no UUID has to be copied between applies.
+    #   idp_id — a literal UUID. Escape hatch for a directory service or SAML
+    #     provider that already exists and is not managed here.
+    idp_id             = optional(string, null)
+    directory_service  = optional(string, null)
     name               = optional(string, null)
     distinguished_name = optional(string, null)
   }))
@@ -85,6 +96,22 @@ variable "user_groups" {
       contains(["LDAP", "SAML"], v.group_type)
     ])
     error_message = "User group 'group_type' must be one of: LDAP, SAML."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_groups :
+      (v.idp_id != null) != (v.directory_service != null)
+    ])
+    error_message = "Each user group must set exactly one of 'idp_id' or 'directory_service', not both and not neither."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_groups :
+      v.directory_service == null || contains(keys(var.directory_services), coalesce(v.directory_service, ""))
+    ])
+    error_message = "User group 'directory_service' must be a key in var.directory_services."
   }
 }
 

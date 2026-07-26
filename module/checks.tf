@@ -14,9 +14,9 @@ check "idp_users_have_idp_id" {
   assert {
     condition = alltrue([
       for k, v in var.users :
-      !contains(["SAML", "LDAP"], v.user_type) || v.idp_id != null
+      !contains(["SAML", "LDAP"], v.user_type) || v.idp_id != null || v.directory_service != null
     ])
-    error_message = "SAML and LDAP users should have an 'idp_id' specified."
+    error_message = "SAML and LDAP users should have either an 'idp_id' or a 'directory_service' specified."
   }
 }
 
