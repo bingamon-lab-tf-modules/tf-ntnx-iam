@@ -40,9 +40,11 @@ check "authorization_policies_are_coherent" {
   assert {
     condition = alltrue([
       for k, v in var.authorization_policies :
-      v.role != null && v.role != "" && length(v.identities) > 0 && length(v.entities) > 0
+      length([for r in [v.role, v.role_name, v.role_key] : r if r != null && r != ""]) == 1 &&
+      length(v.identities) + length(v.user_group_keys) + length(v.user_keys) > 0 &&
+      length(v.entities) > 0
     ])
-    error_message = "Each authorization policy should name a role and bind at least one identity over at least one entity scope."
+    error_message = "Each authorization policy should name exactly one role (role_name, role_key or role) and bind at least one identity over at least one entity scope."
   }
 }
 

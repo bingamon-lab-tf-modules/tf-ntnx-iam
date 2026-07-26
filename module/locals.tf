@@ -100,4 +100,47 @@ locals {
       local.existing_user_ext_ids_by_username, v.user, null)))
     })
   }
+
+  ##################################################
+  # Authorization policies: role and identity resolution
+  ##################################################
+
+  # Distinct role display names to look up. Drives the data.nutanix_roles_v2
+  # fan-out, so a plan with no 'role_name' in play issues no role queries.
+  authz_role_names = toset([
+    for k, v in var.authorization_policies : v.role_name
+    if v.role_name != null && v.role_name != ""
+  ])
+
+  # Identity filter strings per policy, in the shape Prism Central expects.
+  # Group membership is expressed as user.group — NOT a top-level "group" key
+  # (confirmed against a live PC's built-in policies). Raw 'identities' entries
+  # are appended verbatim so an unusual filter is still expressible.
+  authz_identities = {
+    for k, v in var.authorization_policies : k => concat(
+      length(v.user_group_keys) > 0 ? [
+        jsonencode({ user = { group = { anyof = [
+          for g in v.user_group_keys : nutanix_user_groups_v2.group[g].ext_id
+        ] } } })
+      ] : [],
+      length(v.user_keys) > 0 ? [
+        jsonencode({ user = { uuid = { anyof = [
+          for u in v.user_keys : nutanix_users_v2.user[u].ext_id
+        ] } } })
+      ] : [],
+      v.identities,
+    )
+  }
+
+  # Role ext_id per policy. Exactly one source is set (enforced by variable
+  # validation), so the precedence here never has to arbitrate a conflict.
+  authz_roles = {
+    for k, v in var.authorization_policies : k => (
+      v.role_name != null && v.role_name != ""
+      ? one(data.nutanix_roles_v2.role_by_name[v.role_name].roles[*].ext_id)
+      : v.role_key != null && v.role_key != ""
+      ? nutanix_roles_v2.role[v.role_key].ext_id
+      : v.role
+    )
+  }
 }

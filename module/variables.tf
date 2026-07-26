@@ -328,12 +328,35 @@ variable "authorization_policies" {
       entities   = ["{\"images\":{\"*\":{\"eq\":\"*\"}}}"]
   EOT
   type = map(object({
-    display_name              = string
-    role                      = string
+    display_name = string
+    # Role to bind. Supply EXACTLY ONE of:
+    #   role_name — display name of an existing role, looked up at plan time
+    #     (e.g. "Prism Admin"). PREFERRED: built-in role ext_ids are per-Prism
+    #     Central UUIDs, so a literal is not portable between environments.
+    #   role_key  — key into var.roles, for a role this module creates.
+    #   role      — a literal role ext_id. Escape hatch only.
+    role      = optional(string, null)
+    role_name = optional(string, null)
+    role_key  = optional(string, null)
+
     description               = optional(string, null)
     authorization_policy_type = optional(string, null)
-    identities                = optional(list(string), [])
-    entities                  = optional(list(string), [])
+
+    # Identities to bind the role to. Combine any of:
+    #   user_group_keys — keys into var.user_groups; rendered to the identity
+    #     filter Prism Central actually uses for groups:
+    #       {"user":{"group":{"anyof":["<group ext_id>"]}}}
+    #     (verified against a live PC — note it is nested under "user", NOT a
+    #     top-level "group" key as the provider docs' examples might suggest).
+    #   user_keys — keys into var.users; rendered to
+    #       {"user":{"uuid":{"anyof":["<user ext_id>"]}}}
+    #   identities — raw provider 'reserved' filter strings. Escape hatch for
+    #     anything the two shortcuts above do not express.
+    user_group_keys = optional(list(string), [])
+    user_keys       = optional(list(string), [])
+    identities      = optional(list(string), [])
+
+    entities = optional(list(string), [])
   }))
   default = {}
 
@@ -348,17 +371,41 @@ variable "authorization_policies" {
   validation {
     condition = alltrue([
       for k, v in var.authorization_policies :
-      v.role != null && v.role != ""
+      length([for r in [v.role, v.role_name, v.role_key] : r if r != null && r != ""]) == 1
     ])
-    error_message = "Authorization policy 'role' is required and must be a non-empty string (a role ext_id)."
+    error_message = "Each authorization policy must set exactly one of 'role_name', 'role_key' or 'role'."
   }
 
   validation {
     condition = alltrue([
       for k, v in var.authorization_policies :
-      length(v.identities) > 0
+      v.role_key == null || contains(keys(var.roles), coalesce(v.role_key, ""))
     ])
-    error_message = "Each authorization policy must bind at least one identity."
+    error_message = "Authorization policy 'role_key' must be a key in var.roles."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      alltrue([for g in v.user_group_keys : contains(keys(var.user_groups), g)])
+    ])
+    error_message = "Authorization policy 'user_group_keys' entries must be keys in var.user_groups."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      alltrue([for u in v.user_keys : contains(keys(var.users), u)])
+    ])
+    error_message = "Authorization policy 'user_keys' entries must be keys in var.users."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      length(v.identities) + length(v.user_group_keys) + length(v.user_keys) > 0
+    ])
+    error_message = "Each authorization policy must bind at least one identity via 'user_group_keys', 'user_keys' or 'identities'."
   }
 
   # The provider requires at least one entity scope block (min_items = 1); guard

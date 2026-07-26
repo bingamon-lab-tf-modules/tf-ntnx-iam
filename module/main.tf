@@ -145,12 +145,12 @@ resource "nutanix_authorization_policy_v2" "authorization_policy" {
   for_each = var.authorization_policies
 
   display_name              = each.value.display_name
-  role                      = each.value.role
+  role                      = local.authz_roles[each.key]
   description               = each.value.description
   authorization_policy_type = each.value.authorization_policy_type
 
   dynamic "identities" {
-    for_each = each.value.identities
+    for_each = local.authz_identities[each.key]
     content {
       reserved = identities.value
     }
