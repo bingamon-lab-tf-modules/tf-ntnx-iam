@@ -49,3 +49,49 @@ data "nutanix_user_keys_v2" "user_keys" {
 
   user_ext_id = each.value
 }
+
+##################################################
+# Role lookup by display name
+#
+# Built-in role ext_ids are per-Prism-Central UUIDs, so an authorization policy
+# cannot portably hard-code one. This resolves a role by its display name at
+# plan time instead.
+#
+# Deliberately one exact-match query per name rather than reading
+# 'existing_roles' above and filtering in HCL: that data source takes the API's
+# default page size of 50, and a stock Prism Central already ships 60 roles, so
+# a name-to-ext_id map built from it would silently miss whatever fell off the
+# first page. An '$filter=displayName eq ...' query is exact regardless of how
+# many roles exist.
+#
+# NOT gated behind var.enable_data_lookups: this is required to resolve a
+# policy the caller has explicitly asked for, not optional discovery, and it
+# only runs when some policy actually sets 'role_name'.
+##################################################
+
+data "nutanix_roles_v2" "role_by_name" {
+  for_each = local.authz_role_names
+
+  filter = "displayName eq '${each.value}'"
+}
+
+##################################################
+# Operation (permission) lookup by display name
+#
+# Same reasoning as role_by_name: operation ext_ids are per-Prism-Central
+# UUIDs, so a role cannot portably hard-code them.
+#
+# One exact-match query per name, NOT a bulk prefix filter. The operations API
+# caps a page at 100; a stock Prism Central has 1272 operations, 414 of which
+# start with 'View_'. The data source does not paginate, so a prefix filter
+# would return the first 100 and silently drop the rest — producing a role that
+# looks right in config but is missing most of its permissions. An exact-match
+# query returns exactly one row or none, and 'role_operation_names_resolve' in
+# checks.tf fails the plan on none.
+##################################################
+
+data "nutanix_operations_v2" "operation_by_name" {
+  for_each = local.role_operation_names
+
+  filter = "displayName eq '${each.value}'"
+}

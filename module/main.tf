@@ -13,9 +13,13 @@ resource "nutanix_users_v2" "user" {
   last_name      = each.value.last_name
   email_id       = each.value.email_id
   password       = each.value.password
-  idp_id         = each.value.idp_id
-  locale         = each.value.locale
-  region         = each.value.region
+  idp_id = (
+    each.value.directory_service != null
+    ? nutanix_directory_services_v2.directory_service[each.value.directory_service].ext_id
+    : each.value.idp_id
+  )
+  locale = each.value.locale
+  region = each.value.region
   # NOTE: is_force_reset_password is not supported by the nutanix provider
   # (verified unsupported in 2.4.2 via `tofu validate`). A validation guard on
   # var.users errors if a caller sets it, so the value can't be silently lost.
@@ -31,8 +35,12 @@ resource "nutanix_users_v2" "user" {
 resource "nutanix_user_groups_v2" "group" {
   for_each = var.user_groups
 
-  group_type         = each.value.group_type
-  idp_id             = each.value.idp_id
+  group_type = each.value.group_type
+  idp_id = (
+    each.value.directory_service != null
+    ? nutanix_directory_services_v2.directory_service[each.value.directory_service].ext_id
+    : each.value.idp_id
+  )
   name               = each.value.name
   distinguished_name = each.value.distinguished_name
 }
@@ -42,7 +50,7 @@ resource "nutanix_user_groups_v2" "group" {
 ##################################################
 
 resource "nutanix_roles_v2" "role" {
-  for_each = var.roles
+  for_each = local.roles
 
   display_name = each.value.display_name
   description  = each.value.description
@@ -137,12 +145,12 @@ resource "nutanix_authorization_policy_v2" "authorization_policy" {
   for_each = var.authorization_policies
 
   display_name              = each.value.display_name
-  role                      = each.value.role
+  role                      = local.authz_roles[each.key]
   description               = each.value.description
   authorization_policy_type = each.value.authorization_policy_type
 
   dynamic "identities" {
-    for_each = each.value.identities
+    for_each = local.authz_identities[each.key]
     content {
       reserved = identities.value
     }

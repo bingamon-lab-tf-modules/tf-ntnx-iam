@@ -5,14 +5,18 @@
 variable "users" {
   description = "A map of users to manage in Nutanix."
   type = map(object({
-    username                = string
-    user_type               = string # LOCAL, SAML, LDAP, EXTERNAL, SERVICE_ACCOUNT
-    display_name            = optional(string, null)
-    first_name              = optional(string, null)
-    middle_initial          = optional(string, null)
-    last_name               = optional(string, null)
-    email_id                = optional(string, null)
+    username       = string
+    user_type      = string # LOCAL, SAML, LDAP, EXTERNAL, SERVICE_ACCOUNT
+    display_name   = optional(string, null)
+    first_name     = optional(string, null)
+    middle_initial = optional(string, null)
+    last_name      = optional(string, null)
+    email_id       = optional(string, null)
+    # As with user_groups: 'directory_service' is a key into
+    # var.directory_services and is resolved to that service's ext_id, while
+    # 'idp_id' takes a literal UUID for a provider managed elsewhere.
     idp_id                  = optional(string, null)
+    directory_service       = optional(string, null)
     locale                  = optional(string, null)
     region                  = optional(string, null)
     is_force_reset_password = optional(bool, false)
@@ -72,8 +76,15 @@ variable "user_passwords" {
 variable "user_groups" {
   description = "A map of user groups to manage in Nutanix."
   type = map(object({
-    group_type         = string # LDAP, SAML
-    idp_id             = string
+    group_type = string # LDAP, SAML
+    # Identity provider for this group. Supply EXACTLY ONE of:
+    #   directory_service — key into var.directory_services, resolved to that
+    #     service's ext_id after it is created. Use this for a directory this
+    #     module manages, so no UUID has to be copied between applies.
+    #   idp_id — a literal UUID. Escape hatch for a directory service or SAML
+    #     provider that already exists and is not managed here.
+    idp_id             = optional(string, null)
+    directory_service  = optional(string, null)
     name               = optional(string, null)
     distinguished_name = optional(string, null)
   }))
@@ -86,6 +97,22 @@ variable "user_groups" {
     ])
     error_message = "User group 'group_type' must be one of: LDAP, SAML."
   }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_groups :
+      (v.idp_id != null) != (v.directory_service != null)
+    ])
+    error_message = "Each user group must set exactly one of 'idp_id' or 'directory_service', not both and not neither."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.user_groups :
+      v.directory_service == null || contains(keys(var.directory_services), coalesce(v.directory_service, ""))
+    ])
+    error_message = "User group 'directory_service' must be a key in var.directory_services."
+  }
 }
 
 ##################################################
@@ -97,7 +124,19 @@ variable "roles" {
   type = map(object({
     display_name = string
     description  = optional(string, null)
-    operations   = list(string)
+    # Permissions granted by this role. Supply either or both:
+    #   operation_names — operation display names (e.g. "View_Virtual_Machine"),
+    #     each resolved to its ext_id at plan time. PREFERRED: operation ext_ids
+    #     are per-Prism-Central UUIDs, so a literal list is not portable.
+    #   operations — literal operation ext_ids. Escape hatch.
+    #
+    # There is deliberately NO bulk "filter" option (e.g. all View_*). The
+    # operations API caps a page at 100 while a stock Prism Central has 1272
+    # operations and 414 starting with View_, and the data source does not
+    # paginate — a filter would silently build a role missing most of its
+    # permissions. Naming operations explicitly cannot truncate.
+    operations      = optional(list(string), [])
+    operation_names = optional(list(string), [])
   }))
   default = {}
 
@@ -112,9 +151,9 @@ variable "roles" {
   validation {
     condition = alltrue([
       for k, v in var.roles :
-      length(v.operations) > 0
+      length(v.operations) + length(v.operation_names) > 0
     ])
-    error_message = "Each role must have at least one operation."
+    error_message = "Each role must have at least one operation, via 'operation_names' or 'operations'."
   }
 }
 
@@ -301,12 +340,35 @@ variable "authorization_policies" {
       entities   = ["{\"images\":{\"*\":{\"eq\":\"*\"}}}"]
   EOT
   type = map(object({
-    display_name              = string
-    role                      = string
+    display_name = string
+    # Role to bind. Supply EXACTLY ONE of:
+    #   role_name — display name of an existing role, looked up at plan time
+    #     (e.g. "Prism Admin"). PREFERRED: built-in role ext_ids are per-Prism
+    #     Central UUIDs, so a literal is not portable between environments.
+    #   role_key  — key into var.roles, for a role this module creates.
+    #   role      — a literal role ext_id. Escape hatch only.
+    role      = optional(string, null)
+    role_name = optional(string, null)
+    role_key  = optional(string, null)
+
     description               = optional(string, null)
     authorization_policy_type = optional(string, null)
-    identities                = optional(list(string), [])
-    entities                  = optional(list(string), [])
+
+    # Identities to bind the role to. Combine any of:
+    #   user_group_keys — keys into var.user_groups; rendered to the identity
+    #     filter Prism Central actually uses for groups:
+    #       {"user":{"group":{"anyof":["<group ext_id>"]}}}
+    #     (verified against a live PC — note it is nested under "user", NOT a
+    #     top-level "group" key as the provider docs' examples might suggest).
+    #   user_keys — keys into var.users; rendered to
+    #       {"user":{"uuid":{"anyof":["<user ext_id>"]}}}
+    #   identities — raw provider 'reserved' filter strings. Escape hatch for
+    #     anything the two shortcuts above do not express.
+    user_group_keys = optional(list(string), [])
+    user_keys       = optional(list(string), [])
+    identities      = optional(list(string), [])
+
+    entities = optional(list(string), [])
   }))
   default = {}
 
@@ -321,17 +383,41 @@ variable "authorization_policies" {
   validation {
     condition = alltrue([
       for k, v in var.authorization_policies :
-      v.role != null && v.role != ""
+      length([for r in [v.role, v.role_name, v.role_key] : r if r != null && r != ""]) == 1
     ])
-    error_message = "Authorization policy 'role' is required and must be a non-empty string (a role ext_id)."
+    error_message = "Each authorization policy must set exactly one of 'role_name', 'role_key' or 'role'."
   }
 
   validation {
     condition = alltrue([
       for k, v in var.authorization_policies :
-      length(v.identities) > 0
+      v.role_key == null || contains(keys(var.roles), coalesce(v.role_key, ""))
     ])
-    error_message = "Each authorization policy must bind at least one identity."
+    error_message = "Authorization policy 'role_key' must be a key in var.roles."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      alltrue([for g in v.user_group_keys : contains(keys(var.user_groups), g)])
+    ])
+    error_message = "Authorization policy 'user_group_keys' entries must be keys in var.user_groups."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      alltrue([for u in v.user_keys : contains(keys(var.users), u)])
+    ])
+    error_message = "Authorization policy 'user_keys' entries must be keys in var.users."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.authorization_policies :
+      length(v.identities) + length(v.user_group_keys) + length(v.user_keys) > 0
+    ])
+    error_message = "Each authorization policy must bind at least one identity via 'user_group_keys', 'user_keys' or 'identities'."
   }
 
   # The provider requires at least one entity scope block (min_items = 1); guard
