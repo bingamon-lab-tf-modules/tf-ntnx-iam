@@ -26,6 +26,11 @@ resource "nutanix_users_v2" "user" {
   # is_force_reset_password = each.value.is_force_reset_password
   status      = each.value.status
   description = each.value.description
+
+  depends_on = [
+    nutanix_directory_services_v2.directory_service,
+    nutanix_saml_identity_providers_v2.saml_idp,
+  ]
 }
 
 ##################################################
@@ -43,6 +48,11 @@ resource "nutanix_user_groups_v2" "group" {
   )
   name               = each.value.name
   distinguished_name = each.value.distinguished_name
+
+  depends_on = [
+    nutanix_directory_services_v2.directory_service,
+    nutanix_saml_identity_providers_v2.saml_idp,
+  ]
 }
 
 ##################################################
@@ -162,6 +172,12 @@ resource "nutanix_authorization_policy_v2" "authorization_policy" {
       reserved = entities.value
     }
   }
+
+  depends_on = [
+    nutanix_users_v2.user,
+    nutanix_user_groups_v2.group,
+    nutanix_roles_v2.role,
+  ]
 }
 
 ##################################################
