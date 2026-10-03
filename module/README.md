@@ -10,14 +10,14 @@ A description of the module goes here.
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.10.0 |
 | <a name="requirement_nutanix"></a> [nutanix](#requirement\_nutanix) | >= 2.4.2 |
 
 ## Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="provider_nutanix"></a> [nutanix](#provider\_nutanix) | 2.4.2 |
 
 ## Modules
@@ -27,7 +27,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [nutanix_authorization_policy_v2.authorization_policy](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/authorization_policy_v2) | resource |
 | [nutanix_directory_services_v2.directory_service](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/directory_services_v2) | resource |
 | [nutanix_roles_v2.role](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/roles_v2) | resource |
@@ -50,7 +50,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_authorization_policies"></a> [authorization\_policies](#input\_authorization\_policies) | A map of authorization policies (role bindings) to manage in Nutanix. Each<br/>entry binds a role to one or more identities (users/groups) over one or more<br/>entity scopes — the v2 replacement for legacy v3 access\_control\_policy.<br/><br/>'role' is the ext\_id (UUID) of the role to bind. 'identities' and 'entities'<br/>are lists of provider 'reserved' filter-expression strings (JSON), mirroring<br/>the nutanix\_authorization\_policy\_v2 schema, e.g.<br/>  identities = ["{\"user\":{\"uuid\":{\"anyof\":[\"<user-uuid>\"]}}}"]<br/>  entities   = ["{\"images\":{\"*\":{\"eq\":\"*\"}}}"] | <pre>map(object({<br/>    display_name = string<br/>    # Role to bind. Supply EXACTLY ONE of:<br/>    #   role_name — display name of an existing role, looked up at plan time<br/>    #     (e.g. "Prism Admin"). PREFERRED: built-in role ext_ids are per-Prism<br/>    #     Central UUIDs, so a literal is not portable between environments.<br/>    #   role_key  — key into var.roles, for a role this module creates.<br/>    #   role      — a literal role ext_id. Escape hatch only.<br/>    role      = optional(string, null)<br/>    role_name = optional(string, null)<br/>    role_key  = optional(string, null)<br/><br/>    description               = optional(string, null)<br/>    authorization_policy_type = optional(string, null)<br/><br/>    # Identities to bind the role to. Combine any of:<br/>    #   user_group_keys — keys into var.user_groups; rendered to the identity<br/>    #     filter Prism Central actually uses for groups:<br/>    #       {"user":{"group":{"anyof":["<group ext_id>"]}}}<br/>    #     (verified against a live PC — note it is nested under "user", NOT a<br/>    #     top-level "group" key as the provider docs' examples might suggest).<br/>    #   user_keys — keys into var.users; rendered to<br/>    #       {"user":{"uuid":{"anyof":["<user ext_id>"]}}}<br/>    #   identities — raw provider 'reserved' filter strings. Escape hatch for<br/>    #     anything the two shortcuts above do not express.<br/>    user_group_keys = optional(list(string), [])<br/>    user_keys       = optional(list(string), [])<br/>    identities      = optional(list(string), [])<br/><br/>    entities = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_directory_service_passwords"></a> [directory\_service\_passwords](#input\_directory\_service\_passwords) | A map of directory service (LDAP) service account passwords, keyed by the same map key as 'var.directory\_services'. Kept separate so the value is marked sensitive without over-masking the other (non-secret) directory service attributes in plan output. | `map(string)` | `{}` | no |
 | <a name="input_directory_services"></a> [directory\_services](#input\_directory\_services) | A map of directory services to manage in Nutanix. | <pre>map(object({<br/>    name                = string<br/>    url                 = string<br/>    domain_name         = string<br/>    directory_type      = string # ACTIVE_DIRECTORY, OPEN_LDAP<br/>    secondary_urls      = optional(list(string), [])<br/>    group_search_type   = optional(string, null)<br/>    white_listed_groups = optional(list(string), [])<br/><br/>    service_account = object({<br/>      username = string<br/>    })<br/><br/>    open_ldap_configuration = optional(object({<br/>      user_configuration = object({<br/>        user_object_class  = string<br/>        user_search_base   = string<br/>        username_attribute = string<br/>      })<br/>      user_group_configuration = object({<br/>        group_object_class           = string<br/>        group_search_base            = string<br/>        group_member_attribute       = string<br/>        group_member_attribute_value = string<br/>      })<br/>    }), null)<br/>  }))</pre> | `{}` | no |
@@ -68,7 +68,7 @@ No modules.
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_authorization_policies"></a> [authorization\_policies](#output\_authorization\_policies) | Map of created authorization policies (role bindings) with their details. |
 | <a name="output_authorization_policy_ids"></a> [authorization\_policy\_ids](#output\_authorization\_policy\_ids) | Map of authorization policy keys to their external IDs. |
 | <a name="output_directory_service_ids"></a> [directory\_service\_ids](#output\_directory\_service\_ids) | Map of directory service keys to their external IDs. |
