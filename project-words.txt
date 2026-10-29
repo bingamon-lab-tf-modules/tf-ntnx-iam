@@ -80,3 +80,8 @@ trivycache
 ungated
 utilize
 prek
+SecretSpec
+mktemp
+bingamon
+esac
+secops
