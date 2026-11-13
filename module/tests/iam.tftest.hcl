@@ -492,3 +492,46 @@ run "saml_unsupported_custom_attr" {
 
   expect_failures = [var.saml_identity_providers]
 }
+
+# Test 20: Global role with operation_names resolution and gated introspection
+# lookups (enable_data_lookups = true) plans cleanly against the v2.5.1 schema.
+run "role_is_global_and_operation_lookup" {
+  command = plan
+
+  variables {
+    enable_data_lookups      = true
+    operation_lookup_ext_ids = ["00000000-0000-0000-0000-000000000001"]
+    roles = {
+      global_vm_viewer = {
+        display_name    = "Global VM Viewer"
+        is_global       = true
+        operation_names = ["View_Virtual_Machine"]
+      }
+    }
+  }
+
+  override_data {
+    target = data.nutanix_operations_v2.operation_by_name["View_Virtual_Machine"]
+    values = {
+      operations = [
+        {
+          associated_endpoint_list = []
+          client_name              = ""
+          created_time             = "2026-01-01T00:00:00Z"
+          description              = "View virtual machine details"
+          display_name             = "View_Virtual_Machine"
+          entity_type              = "VM"
+          ext_id                   = "00000000-0000-0000-0000-000000000001"
+          last_updated_time        = "2026-01-01T00:00:00Z"
+          operation_type           = "INTERNAL"
+          related_operation_list   = []
+        }
+      ]
+    }
+  }
+
+  assert {
+    condition     = contains(output.roles["global_vm_viewer"].operations, "00000000-0000-0000-0000-000000000001")
+    error_message = "Expected operation_names 'View_Virtual_Machine' to resolve to its mocked ext_id."
+  }
+}

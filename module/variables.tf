@@ -124,6 +124,7 @@ variable "roles" {
   type = map(object({
     display_name = string
     description  = optional(string, null)
+    is_global    = optional(bool, null)
     # Permissions granted by this role. Supply either or both:
     #   operation_names — operation display names (e.g. "View_Virtual_Machine"),
     #     each resolved to its ext_id at plan time. PREFERRED: operation ext_ids
@@ -353,6 +354,7 @@ variable "authorization_policies" {
 
     description               = optional(string, null)
     authorization_policy_type = optional(string, null)
+    is_global                 = optional(bool, null)
 
     # Identities to bind the role to. Combine any of:
     #   user_group_keys — keys into var.user_groups; rendered to the identity

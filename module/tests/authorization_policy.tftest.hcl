@@ -216,3 +216,55 @@ run "policy_invalid_type" {
 
   expect_failures = [var.authorization_policies]
 }
+
+# Test 8: A policy resolving role_name via nutanix_roles_v2 with is_global = true
+# and enable_data_lookups = true plans cleanly against the v2.5.1 schema.
+run "policy_with_role_name_and_is_global" {
+  command = plan
+
+  variables {
+    enable_data_lookups = true
+    authorization_policies = {
+      global_admins = {
+        display_name              = "global-admins"
+        role_name                 = "Prism Admin"
+        authorization_policy_type = "USER_DEFINED"
+        is_global                 = true
+        identities                = ["{\"user\":{\"uuid\":{\"anyof\":[\"00000000-0000-0000-0000-000000000000\"]}}}"]
+        entities                  = ["{\"images\":{\"*\":{\"eq\":\"*\"}}}"]
+      }
+    }
+  }
+
+  override_data {
+    target = data.nutanix_roles_v2.role_by_name["Prism Admin"]
+    values = {
+      roles = [
+        {
+          accessible_clients          = []
+          accessible_entity_types     = []
+          assigned_users_count        = 0
+          assigned_users_groups_count = 0
+          client_name                 = ""
+          created_by                  = "system"
+          created_time                = "2026-01-01T00:00:00Z"
+          description                 = "Built-in Prism Admin role"
+          display_name                = "Prism Admin"
+          ext_id                      = "ba250e3e-1db1-4950-917f-a9e2ea35b8e3"
+          is_system_defined           = true
+          last_updated_time           = "2026-01-01T00:00:00Z"
+          links                       = []
+          operations                  = ["00000000-0000-0000-0000-000000000001"]
+          project_ext_id              = ""
+          share_with_all_projects     = true
+          tenant_id                   = ""
+        }
+      ]
+    }
+  }
+
+  assert {
+    condition     = output.authorization_policies["global_admins"].role == "ba250e3e-1db1-4950-917f-a9e2ea35b8e3"
+    error_message = "Expected role_name 'Prism Admin' to resolve to its mocked ext_id."
+  }
+}

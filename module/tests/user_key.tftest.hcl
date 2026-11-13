@@ -270,3 +270,58 @@ run "revocation_requires_user_reference" {
 
   expect_failures = [var.user_key_revocations]
 }
+
+# Test 11: Pre-existing user resolution via data.nutanix_users_v2 and gated key
+# inventory lookup via data.nutanix_user_keys_v2 plan cleanly on v2.5.1.
+run "user_key_lookup_and_existing_user_resolution" {
+  command = plan
+
+  variables {
+    enable_data_lookups          = true
+    user_key_lookup_user_ext_ids = ["11111111-1111-1111-1111-111111111111"]
+    user_keys = {
+      existing_sa = {
+        name = "existing-sa-key"
+        user = "preexisting-sa"
+      }
+    }
+  }
+
+  override_data {
+    target = data.nutanix_users_v2.existing_users
+    values = {
+      users = [
+        {
+          additional_attributes   = []
+          buckets_access_keys     = []
+          created_by              = "admin"
+          created_time            = "2026-01-01T00:00:00Z"
+          description             = "Pre-existing service account"
+          display_name            = "Pre-existing SA"
+          email_id                = "sa@example.com"
+          ext_id                  = "11111111-1111-1111-1111-111111111111"
+          first_name              = ""
+          idp_id                  = ""
+          is_force_reset_password = false
+          last_login_time         = "2026-01-01T00:00:00Z"
+          last_name               = ""
+          last_updated_by         = "admin"
+          last_updated_time       = "2026-01-01T00:00:00Z"
+          links                   = []
+          locale                  = ""
+          middle_initial          = ""
+          region                  = ""
+          status                  = "ACTIVE"
+          tenant_id               = ""
+          user_type               = "SERVICE_ACCOUNT"
+          username                = "preexisting-sa"
+        }
+      ]
+    }
+  }
+
+  assert {
+    condition     = output.user_keys["existing_sa"].user_ext_id == "11111111-1111-1111-1111-111111111111"
+    error_message = "Expected pre-existing username to resolve to its mocked ext_id."
+  }
+}

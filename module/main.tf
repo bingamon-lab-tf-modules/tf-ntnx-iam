@@ -64,6 +64,7 @@ resource "nutanix_roles_v2" "role" {
 
   display_name = each.value.display_name
   description  = each.value.description != null ? replace(each.value.description, "/[<>;&+%/\\\\\"`]/", "") : null
+  is_global    = each.value.is_global
   operations   = each.value.operations
 }
 
@@ -158,6 +159,7 @@ resource "nutanix_authorization_policy_v2" "authorization_policy" {
   role                      = local.authz_roles[each.key]
   description               = each.value.description != null ? replace(each.value.description, "/[<>;&+%/\\\\\"`]/", "") : null
   authorization_policy_type = each.value.authorization_policy_type
+  is_global                 = each.value.is_global
 
   dynamic "identities" {
     for_each = local.authz_identities[each.key]
